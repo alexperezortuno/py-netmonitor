@@ -8,19 +8,35 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import plotly.express as px
 import streamlit as st
+import logging
+import coloredlogs
 
 # Archivos de configuración
 LOG_FILE = "connections.log"
 MALICIOUS_IPS_FILE = "malicious_ips.txt"
 EXPORT_JSON = "connections.json"
 EXPORT_CSV = "connections.csv"
-IPINFO_TOKEN = os.environ.get("IPINFO_TOKEN")   # Obtén un token gratuito en https://ipinfo.io/signup
+log_str: str = os.getenv("LOG_FORMAT", f"%(asctime)s | %(name)s | %(lineno)d | %(levelname)s | %(message)s")
+log_lvl: str = os.getenv("LOG_LEVEL", "debug")
 
+def get_logger(log_level: str, log_format: str, name: str = None) -> logging.Logger:
+    res = logging.getLogger(__name__) if name is None else logging.getLogger(name)
+    coloredlogs.install(level=log_level.upper(), fmt=log_format)
+    return res
+
+logger = get_logger(log_lvl, log_str)
+
+# Load environment variables from .env file if exists
+def load_env() -> None:
+    from dotenv import load_dotenv
+    load_dotenv()
+    logger.debug("Environment variables loaded")
 
 # Create files if not exist
 def create_files() -> None:
     for file in [LOG_FILE, MALICIOUS_IPS_FILE, EXPORT_JSON, EXPORT_CSV]:
         if not os.path.exists(file):
+            logger.info(f"Creating file {file}")
             with open(file, "w"):
                 pass
 
@@ -35,11 +51,13 @@ def load_malicious_ips() -> set:
 
 # Obtener geolocalización de una IP usando ipinfo.io
 def get_ip_location(ip) -> str:
+    IPINFO_TOKEN = os.environ.get("IPINFO_TOKEN")   # Obtén un token gratuito en https://ipinfo.io/signup
     try:
         response = requests.get(f"https://ipinfo.io/{ip}/json?token={IPINFO_TOKEN}")
         data = response.json()
         return data.get("country", "Unknown")
-    except:
+    except requests.RequestException:
+        logger.error(f"Failed to get IP location from {ip}")
         return "Unknown"
 
 
@@ -169,6 +187,7 @@ def web_interface() -> None:
 if __name__ == "__main__":
     import sys
 
+    load_env()
     create_files()
     if len(sys.argv) > 1:
         if sys.argv[1] == "--cli":
