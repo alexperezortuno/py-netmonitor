@@ -1,4 +1,9 @@
+import ctypes
 import os
+import platform
+import shutil
+import subprocess
+
 import psutil
 import datetime
 import json
@@ -10,14 +15,16 @@ import plotly.express as px
 import streamlit as st
 import logging
 import coloredlogs
+from setuptools.msvc import winreg
 
 # Archivos de configuración
-LOG_FILE = "connections.log"
-MALICIOUS_IPS_FILE = "malicious_ips.txt"
-EXPORT_JSON = "connections.json"
-EXPORT_CSV = "connections.csv"
+LOG_FILE = os.path.expanduser("~/connections.log")
+MALICIOUS_IPS_FILE = os.path.expanduser("~/malicious_ips.txt")
+EXPORT_JSON = os.path.expanduser("~/connections.json")
+EXPORT_CSV = os.path.expanduser("~/connections.csv")
 log_str: str = os.getenv("LOG_FORMAT", f"%(asctime)s | %(name)s | %(lineno)d | %(levelname)s | %(message)s")
 log_lvl: str = os.getenv("LOG_LEVEL", "debug")
+net_monitor: str = os.getenv("NET_MONITOR", "NetMonitor")
 
 def get_logger(log_level: str, log_format: str, name: str = None) -> logging.Logger:
     res = logging.getLogger(__name__) if name is None else logging.getLogger(name)
@@ -173,19 +180,97 @@ def web_interface() -> None:
     st.download_button("Download JSON", json.dumps(df.to_dict(orient="records")), file_name=EXPORT_JSON,
                        mime="application/json")
 
+# Obtener que sistema operativo se está utilizando
+def get_os() -> str:
+    if os.name == "nt":
+        return "Windows"
+    if os.name == "posix":
+        return "Linux"
+    return "Unknown"
+
+def get_system() -> str:
+    return platform.system()
+
+def add_to_startup() -> None:
+    if get_system() == "Windows":
+        import winreg
+    if get_os() != "Windows":
+        logger.debug("this function only works on Windows")
+        return
+    exe_path = os.path.abspath(sys.argv[0])
+    key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
+    try:
+        reg = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+        key_handle = winreg.OpenKey(reg, key, 0, winreg.KEY_ALL_ACCESS)
+        winreg.SetValueEx(key_handle, net_monitor, 0, winreg.REG_SZ, exe_path)
+        winreg.CloseKey(key_handle)
+        logger.debug("added to startup")
+    except Exception as e:
+        logger.error(f"failed to add to startup: {e}")
+
+def remove_from_startup() -> None:
+    key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    try:
+        reg = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+        key_handle = winreg.OpenKey(reg, key, 0, winreg.KEY_ALL_ACCESS)
+        winreg.DeleteValue(key_handle, net_monitor)
+        winreg.CloseKey(key_handle)
+        logger.debug("The program has been removed from Windows startup.")
+    except Exception as e:
+        logger.error(f"Registry key not found: {e}")
+
+def uninstall_program() -> None:
+    if get_os() != "Windows":
+        logger.debug("this function only works on Windows")
+    remove_from_startup()
+    program_path = os.path.dirname(os.path.abspath(__file__))
+
+    try:
+        shutil.rmtree(program_path)
+        logger.debug("The program has been successfully removed.")
+    except Exception as e:
+        logger.error(f"Error deleting the program: {e}")
+
+def show_alert(title, message):
+    system = platform.system()
+
+    if system == "Windows":
+        ctypes.windll.user32.MessageBoxW(0, message, title, 0x40 | 0x1)  # MB_ICONWARNING | MB_OK
+
+    elif system == "Linux":
+        try:
+            subprocess.run(["netmonitor", title, message], check=True)
+        except FileNotFoundError:
+            logger.error(
+                "⚠️ No se pudo mostrar la notificación en Linux. Instala 'libnotify' con: sudo apt install libnotify-bin")
+
+    elif system == "Darwin":  # MacOS
+        try:
+            subprocess.run(["osascript", "-e", f'display notification "{message}" with title "{title}"'], check=True)
+        except FileNotFoundError:
+            print("⚠️ No se pudo mostrar la notificación en MacOS.")
+
+
 # Modo CLI, GUI o Web
 if __name__ == "__main__":
     import sys
 
+    add_to_startup()
     load_env()
     create_files()
+    show_alert("NetMonitor", "NetMonitor is running")
+
     if len(sys.argv) > 1:
         if sys.argv[1] == "--cli":
             show_connections()
         elif sys.argv[1] == "--web":
             web_interface()
+        elif sys.argv[1] == "--uninstall":
+            uninstall_program()
+            sys.exit()
         else:
-            print("Use: python main.py [--cli | --web]")
+            logger.info("Use: python main.py [--cli | --web]")
     else:
         root = tk.Tk()
         app = ConnectionApp(root)
