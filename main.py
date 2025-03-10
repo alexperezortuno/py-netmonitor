@@ -40,14 +40,12 @@ def create_files() -> None:
             with open(file, "w"):
                 pass
 
-
 # Cargar lista de IPs maliciosas
 def load_malicious_ips() -> set:
     if os.path.exists(MALICIOUS_IPS_FILE):
         with open(MALICIOUS_IPS_FILE, "r") as f:
             return set(line.strip() for line in f)
     return set()
-
 
 # Obtener geolocalización de una IP usando ipinfo.io
 def get_ip_location(ip) -> str:
@@ -59,7 +57,6 @@ def get_ip_location(ip) -> str:
     except requests.RequestException:
         logger.error(f"Failed to get IP location from {ip}")
         return "Unknown"
-
 
 # Obtener conexiones activas
 def get_active_connections() -> list:
@@ -82,14 +79,12 @@ def get_active_connections() -> list:
                     continue
     return connections
 
-
 # Guardar en archivo de log
 def log_connections(connections) -> None:
     with open(LOG_FILE, "a") as log:
         log.write(f"\n--- Log {datetime.datetime.now()} ---\n")
         for app, ip, port, country, is_malicious in connections:
             log.write(f"{app} -> {ip}:{port} ({country}) {'(MALICIOUS)' if is_malicious else ''}\n")
-
 
 # Exportar a JSON
 def export_to_json(connections) -> None:
@@ -98,12 +93,10 @@ def export_to_json(connections) -> None:
     with open(EXPORT_JSON, "w") as json_file:
         json.dump(data, json_file, indent=4)
 
-
 # Exportar a CSV
 def export_to_csv(connections) -> None:
     df = pd.DataFrame(connections, columns=["Application", "IP", "Port", "Country", "Malicious"])
     df.to_csv(EXPORT_CSV, index=False)
-
 
 # Mostrar conexiones en terminal
 def show_connections() -> None:
@@ -123,7 +116,6 @@ def show_connections() -> None:
     export_to_json(connections)
     export_to_csv(connections)
     print(f"\nConnections saved in {LOG_FILE}, {EXPORT_JSON}, and {EXPORT_CSV}")
-
 
 # Interfaz gráfica con Tkinter
 class ConnectionApp:
@@ -161,7 +153,6 @@ class ConnectionApp:
         export_to_json(connections)
         export_to_csv(connections)
 
-
 # Interfaz web con Streamlit
 def web_interface() -> None:
     st.title("Real-Time Connection Monitor")
@@ -181,7 +172,6 @@ def web_interface() -> None:
     st.download_button("Download CSV", df.to_csv(index=False), file_name=EXPORT_CSV, mime="text/csv")
     st.download_button("Download JSON", json.dumps(df.to_dict(orient="records")), file_name=EXPORT_JSON,
                        mime="application/json")
-
 
 # Modo CLI, GUI o Web
 if __name__ == "__main__":
