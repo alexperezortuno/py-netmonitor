@@ -80,7 +80,8 @@ def get_active_connections() -> list:
                     remote_port = conn.raddr.port
                     country = get_ip_location(remote_ip)
                     is_malicious = remote_ip in malicious_ips
-                    connections.append((process_name, remote_ip, remote_port, country, is_malicious))
+                    if remote_ip != "127.0.0.1" or remote_ip != "::1":
+                        connections.append((process_name, remote_ip, remote_port, country, is_malicious))
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
     return connections
@@ -128,7 +129,7 @@ class ConnectionApp:
     def __init__(self, root) -> None:
         self.root = root
         self.root.title("Connections Monitor")
-        self.root.geometry("700x400")
+        self.root.geometry("800x600")
 
         self.tree = ttk.Treeview(root, columns=("Application", "IP", "Port", "Country", "Status"), show="headings")
         self.tree.heading("Application", text="Application")
@@ -142,6 +143,7 @@ class ConnectionApp:
         self.refresh_button.pack(pady=10)
 
         self.refresh_connections()
+        show_alert("NetMonitor", "NetMonitor is running")
 
     def refresh_connections(self) -> None:
         self.tree.delete(*self.tree.get_children())
@@ -262,7 +264,6 @@ if __name__ == "__main__":
     add_to_startup()
     load_env()
     create_files()
-    show_alert("NetMonitor", "NetMonitor is running")
 
     if len(sys.argv) > 1:
         if sys.argv[1] == "--cli":
