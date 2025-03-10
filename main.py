@@ -15,7 +15,6 @@ import plotly.express as px
 import streamlit as st
 import logging
 import coloredlogs
-from setuptools.msvc import winreg
 
 # Archivos de configuración
 LOG_FILE = os.path.expanduser("~/connections.log")
@@ -160,7 +159,7 @@ class ConnectionApp:
         export_to_json(connections)
         export_to_csv(connections)
 
-# Interfaz web con Streamlit
+# Web interface with Streamlit
 def web_interface() -> None:
     st.title("Real-Time Connection Monitor")
     st.write("This system monitors active connections on your system and detects potential threats.")
@@ -168,19 +167,19 @@ def web_interface() -> None:
     connections = get_active_connections()
     df = pd.DataFrame(connections, columns=["Application", "IP", "Port", "Country", "Malicious"])
 
-    # Mostrar tabla
+    # Show table
     st.dataframe(df)
 
-    # Gráfica de conexiones por país
+    # Plot connections by country
     fig = px.histogram(df, x="Country", title="Connections by Country")
     st.plotly_chart(fig)
 
-    # Exportar datos
+    # Export data
     st.download_button("Download CSV", df.to_csv(index=False), file_name=EXPORT_CSV, mime="text/csv")
     st.download_button("Download JSON", json.dumps(df.to_dict(orient="records")), file_name=EXPORT_JSON,
                        mime="application/json")
 
-# Obtener que sistema operativo se está utilizando
+# Get the operating system being used
 def get_os() -> str:
     if os.name == "nt":
         return "Windows"
@@ -192,33 +191,37 @@ def get_system() -> str:
     return platform.system()
 
 def add_to_startup() -> None:
-    if get_system() == "Windows":
+    if get_system() == "Windows" or get_os() == "Windows":
         import winreg
-    if get_os() != "Windows":
         logger.debug("this function only works on Windows")
-        return
-    exe_path = os.path.abspath(sys.argv[0])
-    key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        exe_path = os.path.abspath(sys.argv[0])
+        key = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
-    try:
-        reg = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
-        key_handle = winreg.OpenKey(reg, key, 0, winreg.KEY_ALL_ACCESS)
-        winreg.SetValueEx(key_handle, net_monitor, 0, winreg.REG_SZ, exe_path)
-        winreg.CloseKey(key_handle)
-        logger.debug("added to startup")
-    except Exception as e:
-        logger.error(f"failed to add to startup: {e}")
+        try:
+            reg = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+            key_handle = winreg.OpenKey(reg, key, 0, winreg.KEY_ALL_ACCESS)
+            winreg.SetValueEx(key_handle, net_monitor, 0, winreg.REG_SZ, exe_path)
+            winreg.CloseKey(key_handle)
+            logger.debug("added to startup")
+        except Exception as e:
+            logger.error(f"failed to add to startup: {e}")
+    else:
+        logger.debug("this function only works on Linux")
 
 def remove_from_startup() -> None:
-    key = r"Software\Microsoft\Windows\CurrentVersion\Run"
-    try:
-        reg = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
-        key_handle = winreg.OpenKey(reg, key, 0, winreg.KEY_ALL_ACCESS)
-        winreg.DeleteValue(key_handle, net_monitor)
-        winreg.CloseKey(key_handle)
-        logger.debug("The program has been removed from Windows startup.")
-    except Exception as e:
-        logger.error(f"Registry key not found: {e}")
+    if get_system() == "Windows":
+        import winreg
+        key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        try:
+            reg = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+            key_handle = winreg.OpenKey(reg, key, 0, winreg.KEY_ALL_ACCESS)
+            winreg.DeleteValue(key_handle, net_monitor)
+            winreg.CloseKey(key_handle)
+            logger.debug("The program has been removed from Windows startup.")
+        except Exception as e:
+            logger.error(f"Registry key not found: {e}")
+    else:
+        logger.debug("this function only works on Windows")
 
 def uninstall_program() -> None:
     if get_os() != "Windows":
@@ -252,7 +255,7 @@ def show_alert(title, message):
             print("⚠️ No se pudo mostrar la notificación en MacOS.")
 
 
-# Modo CLI, GUI o Web
+# CLI, GUI, or Web mode
 if __name__ == "__main__":
     import sys
 
