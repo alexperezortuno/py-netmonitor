@@ -16,7 +16,7 @@ import streamlit as st
 import logging
 import coloredlogs
 
-# Archivos de configuración
+# Configuration files
 LOG_FILE = os.path.expanduser("~/connections.log")
 MALICIOUS_IPS_FILE = os.path.expanduser("~/malicious_ips.txt")
 EXPORT_JSON = os.path.expanduser("~/connections.json")
@@ -38,7 +38,7 @@ def load_env() -> None:
     load_dotenv()
     logger.debug("Environment variables loaded")
 
-# Create files if not exist
+# Create files if they do not exist
 def create_files() -> None:
     for file in [LOG_FILE, MALICIOUS_IPS_FILE, EXPORT_JSON, EXPORT_CSV]:
         if not os.path.exists(file):
@@ -46,14 +46,14 @@ def create_files() -> None:
             with open(file, "w"):
                 pass
 
-# Cargar lista de IPs maliciosas
+# Load list of malicious IPs
 def load_malicious_ips() -> set:
     if os.path.exists(MALICIOUS_IPS_FILE):
         with open(MALICIOUS_IPS_FILE, "r") as f:
             return set(line.strip() for line in f)
     return set()
 
-# Obtener geolocalización de una IP usando ipinfo.io
+# Get geolocation of an IP using ipinfo.io
 def get_ip_location(ip) -> str:
     IPINFO_TOKEN = os.environ.get("IPINFO_TOKEN")   # Obtén un token gratuito en https://ipinfo.io/signup
     try:
@@ -64,7 +64,7 @@ def get_ip_location(ip) -> str:
         logger.error(f"Failed to get IP location from {ip}")
         return "Unknown"
 
-# Obtener conexiones activas
+# Get active connections
 def get_active_connections() -> list:
     connections = []
     malicious_ips = load_malicious_ips()
@@ -85,26 +85,26 @@ def get_active_connections() -> list:
                     continue
     return connections
 
-# Guardar en archivo de log
+# Save to log file
 def log_connections(connections) -> None:
     with open(LOG_FILE, "a") as log:
         log.write(f"\n--- Log {datetime.datetime.now()} ---\n")
         for app, ip, port, country, is_malicious in connections:
             log.write(f"{app} -> {ip}:{port} ({country}) {'(MALICIOUS)' if is_malicious else ''}\n")
 
-# Exportar a JSON
+# Export to JSON
 def export_to_json(connections) -> None:
     data = [{"Application": app, "IP": ip, "Port": port, "Country": country, "Malicious": is_malicious}
             for app, ip, port, country, is_malicious in connections]
     with open(EXPORT_JSON, "w") as json_file:
         json.dump(data, json_file, indent=4)
 
-# Exportar a CSV
+# Export to CSV
 def export_to_csv(connections) -> None:
     df = pd.DataFrame(connections, columns=["Application", "IP", "Port", "Country", "Malicious"])
     df.to_csv(EXPORT_CSV, index=False)
 
-# Mostrar conexiones en terminal
+# Show connections in terminal
 def show_connections() -> None:
     connections = get_active_connections()
     if not connections:
@@ -123,7 +123,7 @@ def show_connections() -> None:
     export_to_csv(connections)
     print(f"\nConnections saved in {LOG_FILE}, {EXPORT_JSON}, and {EXPORT_CSV}")
 
-# Interfaz gráfica con Tkinter
+# Graphical Interface with Tkinter
 class ConnectionApp:
     def __init__(self, root) -> None:
         self.root = root
