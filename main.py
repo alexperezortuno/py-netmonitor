@@ -80,7 +80,7 @@ def get_active_connections() -> list:
                     remote_port = conn.raddr.port
                     country = get_ip_location(remote_ip)
                     is_malicious = remote_ip in malicious_ips
-                    if remote_ip != "127.0.0.1" or remote_ip != "::1":
+                    if "127.0.0.1" not in remote_ip and "::1" not in remote_ip:
                         connections.append((process_name, remote_ip, remote_port, country, is_malicious))
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
